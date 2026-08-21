@@ -2,7 +2,6 @@
    JTE configuration for Spring Petclinic Application
 */
 
-@Library('jte-templates') _
 
 pipelineConfig {
     /* Application Pipeline Library Setup */
