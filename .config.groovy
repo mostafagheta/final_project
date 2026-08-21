@@ -9,8 +9,6 @@ pipelineConfig {
         merge = true
     }
 
-    /* Template configuration */
-    template = 'app_pipeline'
 
     /* Build/App Config */
     app_name = "spring-petclinic"
