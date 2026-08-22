@@ -310,6 +310,16 @@
         <groupId>org.cyclonedx</groupId>
         <artifactId>cyclonedx-maven-plugin</artifactId>
       </plugin>
+      <!-- Invoked from Jenkins as org.owasp:dependency-check-maven:check.
+           An empty NVD_API_KEY makes DC 13 fail; the JSON 2.0 datafeed does not need a key. -->
+      <plugin>
+        <groupId>org.owasp</groupId>
+        <artifactId>dependency-check-maven</artifactId>
+        <version>13.0.0</version>
+        <configuration>
+          <nvdDatafeedUrl>https://nvd.nist.gov/feeds/json/cve/2.0/nvdcve-2.0-{0}.json.gz</nvdDatafeedUrl>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
   <licenses>
