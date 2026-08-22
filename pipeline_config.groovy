@@ -15,6 +15,8 @@ libraries {
     java_build
     security_scan {
         sonar_project_key = "spring-petclinic-main"
+        sonar_token_credential = "spring-petclinic-main"
+        sonar_server = "SonarQube"
     }
     registry {
         ecr_registry = "130299714330.dkr.ecr.eu-central-1.amazonaws.com"
