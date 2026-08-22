@@ -1,0 +1,13 @@
+.git
+.github
+.mvn
+src
+.idea
+*.md
+target/*.original
+target/classes
+target/generated-sources
+target/maven-status
+target/surefire-reports
+target/jacoco.exec
+target/site
