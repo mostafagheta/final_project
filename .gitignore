@@ -46,3 +46,8 @@ out/
 _site/
 *.css
 !petclinic.css
+
+### CI artifacts ###
+sbom.json
+current_s3_version.json
+HAS_CHANGES
