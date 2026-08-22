@@ -27,6 +27,7 @@ libraries {
     }
     gitops {
         gitops_repo = "https://github.com/mostafagheta/gitops-repo.git"
+        git_credential = "40064b7c-67f3-4b2c-8d3d-57d801eb56c3"
     }
     deploy
     infra
