@@ -17,6 +17,8 @@ libraries {
         sonar_project_key = "spring-petclinic-main"
         sonar_token_credential = "spring-petclinic-main"
         sonar_server = "SonarQube"
+        ecr_registry = "130299714330.dkr.ecr.eu-central-1.amazonaws.com"
+        ecr_repo = "petclinic"
     }
     registry {
         ecr_registry = "130299714330.dkr.ecr.eu-central-1.amazonaws.com"
