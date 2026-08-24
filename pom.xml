@@ -280,7 +280,7 @@
         <executions>
           <execution>
             <goals>
-              <goal>prepare-agent</goal>
+              <goal>test</goal>
             </goals>
           </execution>
           <execution>
