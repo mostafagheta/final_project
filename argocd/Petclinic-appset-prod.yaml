@@ -1,0 +1,53 @@
+# ApplicationSet: petclinic-prod
+# Same branch/chart as dev+test, but uses values-prod.yaml and has NO
+# syncPolicy.automated block, so Argo CD never auto-syncs prod — a human
+# clicks Sync (or runs `argocd app sync`).
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: petclinic-prod
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+
+  generators:
+    - list:
+        elements:
+          - env: prod
+            namespace: petclinic-prod
+            valuesFile: values-prod.yaml
+            ecrRepo: "130299714330.dkr.ecr.eu-central-1.amazonaws.com/petclinic-prod"
+
+  template:
+    metadata:
+      name: "petclinic-{{.env}}"
+      annotations:
+        # --- ArgoCD Image Updater ---
+        # Still watches ECR, but write-back-method=git means it commits the
+        # new tag into values-prod.yaml on the `dev` branch instead of
+        # touching the live Application — nothing deploys until someone
+        # manually syncs.
+        argocd-image-updater.argoproj.io/image-list: "petclinic={{.ecrRepo}}"
+        argocd-image-updater.argoproj.io/petclinic.update-strategy: semver
+        argocd-image-updater.argoproj.io/petclinic.pull-secret: pullsecret:argocd/ecr-prod-secret
+        argocd-image-updater.argoproj.io/write-back-method: git
+        argocd-image-updater.argoproj.io/git-branch: dev
+        argocd-image-updater.argoproj.io/write-back-target: "helmvalues:/helmchart/{{.valuesFile}}"
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/mostafagheta/final_project.git
+        targetRevision: dev
+        path: helmchart
+        helm:
+          valueFiles:
+            - "{{.valuesFile}}"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{.namespace}}"
+      syncPolicy:
+        syncOptions:
+          - CreateNamespace=true
+        # no `automated:` block -> manual sync only

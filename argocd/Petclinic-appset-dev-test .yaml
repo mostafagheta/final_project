@@ -1,0 +1,53 @@
+# ApplicationSet: petclinic-dev-test
+# Covers DEV and TEST — both get automated sync + self-heal + prune.
+# Single branch (dev) holds the chart; each env picks its own values file.
+
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: petclinic-dev-test
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+
+  generators:
+    - list:
+        elements:
+          - env: dev
+            namespace: petclinic-dev
+            valuesFile: values-dev.yaml
+            ecrRepo: "130299714330.dkr.ecr.eu-central-1.amazonaws.com/petclinic-dev"
+          - env: test
+            namespace: petclinic-test
+            valuesFile: values-test.yaml
+            ecrRepo: "130299714330.dkr.ecr.eu-central-1.amazonaws.com/petclinic-test"
+
+  template:
+    metadata:
+      name: "petclinic-{{.env}}"
+      annotations:
+        # --- ArgoCD Image Updater ---
+        argocd-image-updater.argoproj.io/image-list: "petclinic={{.ecrRepo}}"
+        argocd-image-updater.argoproj.io/petclinic.update-strategy: latest
+        argocd-image-updater.argoproj.io/petclinic.pull-secret: pullsecret:argocd/ecr-{{.env}}-secret
+        # write straight into the Argo CD Application (fine here since sync is automated anyway)
+        argocd-image-updater.argoproj.io/write-back-method: argocd
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/mostafagheta/final_project.git
+        targetRevision: dev
+        path: helmchart
+        helm:
+          valueFiles:
+            - "{{.valuesFile}}"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{.namespace}}"
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

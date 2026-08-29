@@ -1,0 +1,20 @@
+# argocd-image-updater-config ConfigMap
+# With Pod Identity, no `credentials:` line or ecr-login.sh script is
+# needed — Image Updater's built-in AWS ECR support auto-discovers
+# credentials via the AWS SDK's default provider chain, which Pod Identity
+# feeds automatically. Just declare the registry endpoint.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-image-updater-config
+  namespace: argocd
+data:
+  registries.conf: |
+    registries:
+      - name: ECR eu-central-1
+        api_url: https://130299714330.dkr.ecr.eu-central-1.amazonaws.com
+        prefix: 130299714330.dkr.ecr.eu-central-1.amazonaws.com
+        credexpire: 10h
+        # no `credentials:` key at all — omitting it tells Image Updater to
+        # fall back to the AWS SDK default credential chain, which Pod
+        # Identity populates for this pod automatically
