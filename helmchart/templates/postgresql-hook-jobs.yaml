@@ -1,0 +1,33 @@
+{{- if and .Values.postgresql.enabled .Values.postgresql.hookJobs }}
+{{- range .Values.postgresql.hookJobs }}
+{{- if .enabled }}
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "myapp.postgresql.fullname" $ }}-{{ .name }}
+  labels:
+    {{- include "myapp.postgresql.labels" $ | nindent 4 }}
+  {{- with .annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  backoffLimit: {{ $.Values.hooks.backoffLimit | default 2 }}
+  ttlSecondsAfterFinished: {{ $.Values.hooks.ttlSecondsAfterFinished | default 300 }}
+  template:
+    metadata:
+      labels:
+        {{- include "myapp.postgresql.selectorLabels" $ | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: {{ .name }}
+          image: "{{ .image.repository }}:{{ .image.tag }}"
+          command:
+            {{- range .command }}
+            - {{ tpl . $ | quote }}
+            {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,129 @@
+# ============================================================
+# values-prod.yaml — Production Environment Overrides
+# Namespace: petclinic-prod
+#
+# Deploy with:
+#   helm upgrade --install petclinic ./petclinic \
+#     -f values-prod.yaml \
+#     --namespace petclinic-prod \
+#     --create-namespace
+# ============================================================
+
+replicaCount: 3
+
+image:
+  repository: 130299714330.dkr.ecr.eu-central-1.amazonaws.com/petclinic-prod
+  pullPolicy: IfNotPresent     # Avoid unnecessary pulls on stable prod tags
+  tag: "latest"
+
+fullnameOverride: "petclinic"
+
+# Production-grade resources — sized for real traffic
+resources:
+  limits:
+    cpu: "1"
+    memory: 1Gi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+env:
+  - name: SPRING_PROFILES_ACTIVE
+    value: "postgres"
+
+waitForDatabase:
+  enabled: true
+
+# Full HPA + VPA enabled in prod for cost-efficiency and HA
+autoscaling:
+  hpa:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  vpa:
+    enabled: false            # Enable if VPA is installed in the cluster
+    updateMode: "Auto"
+    controlledResources:
+      - cpu
+      - memory
+    minAllowed:
+      cpu: 250m
+      memory: 256Mi
+    maxAllowed:
+      cpu: "2"
+      memory: 2Gi
+
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+    alb.ingress.kubernetes.io/manage-backend-security-group-rules: "true"
+    alb.ingress.kubernetes.io/tags: "Environment=prod,Team=platform"
+  hosts:
+    - host: ""
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+    # Uncomment to enable HTTPS:
+    # - secretName: petclinic-prod-tls
+    #   hosts:
+    #     - petclinic.example.com
+
+externalSecret:
+  enabled: true
+  refreshInterval: 1h
+  secretStoreRef:
+    name: aws-secrets-manager
+    kind: ClusterSecretStore
+  target:
+    name: ""
+    creationPolicy: Owner
+  data:
+    - secretKey: POSTGRES_USER
+      remoteRef:
+        key: petclinic/database/prod
+        property: username
+    - secretKey: POSTGRES_PASS
+      remoteRef:
+        key: petclinic/database/prod
+        property: password
+    - secretKey: POSTGRES_URL
+      remoteRef:
+        key: petclinic/database/prod
+        property: url
+
+postgresql:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "16-alpine"
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  auth:
+    existingSecret: "petclinic"
+    existingSecretPasswordKey: "POSTGRES_PASS"
+    database: petclinic
+    username: petclinic
+    # password field intentionally omitted — always pulled from AWS Secrets Manager
+    password: ""
+  service:
+    port: 5432
+  persistence:
+    enabled: true
+    storageClass: "gp2"
+    accessModes:
+      - ReadWriteOnce
+    size: 20Gi                # Larger disk for production data
+  resources:
+    limits:
+      cpu: "2"
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi

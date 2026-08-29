@@ -1,0 +1,21 @@
+{{- if .Values.serviceLoadBalancer.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "myapp.fullname" . }}-lb
+  labels:
+    {{- include "myapp.labels" . | nindent 4 }}
+  {{- with .Values.serviceLoadBalancer.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: LoadBalancer
+  ports:
+    - port: {{ .Values.serviceLoadBalancer.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "myapp.selectorLabels" . | nindent 4 }}
+{{- end }}

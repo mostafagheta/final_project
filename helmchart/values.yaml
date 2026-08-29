@@ -1,0 +1,177 @@
+replicaCount: 2
+
+image:
+  repository: 130299714330.dkr.ecr.eu-central-1.amazonaws.com/petclinic-dev
+  pullPolicy: Always
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: "petclinic"
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+deploymentAnnotations: {}
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext: {}
+securityContext: {}
+
+# Internal ClusterIP Service (for in-cluster communication and ingress routing)
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+  annotations: {}
+
+# External LoadBalancer Service (disabled in favor of Ingress ALB)
+serviceLoadBalancer:
+  enabled: false
+  type: LoadBalancer
+  port: 80
+  targetPort: 8080
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: "external"
+    service.beta.kubernetes.io/aws-load-balancer-nlb-target-type: "ip"
+    service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+env:
+  - name: SPRING_PROFILES_ACTIVE
+    value: "postgres"
+envFrom: []
+
+# Optional initContainer in App Deployment to wait for PostgreSQL readiness before starting
+waitForDatabase:
+  enabled: true
+
+livenessProbe:
+  httpGet:
+    path: /actuator/health/liveness
+    port: http
+  initialDelaySeconds: 40
+  periodSeconds: 15
+  timeoutSeconds: 3
+  failureThreshold: 5
+
+readinessProbe:
+  httpGet:
+    path: /actuator/health/readiness
+    port: http
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 3
+  failureThreshold: 3
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+autoscaling:
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  vpa:
+    enabled: false
+    updateMode: "Auto"
+    controlledResources:
+      - cpu
+      - memory
+    minAllowed:
+      cpu: 100m
+      memory: 128Mi
+    maxAllowed:
+      cpu: "2"
+      memory: 2Gi
+
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+    alb.ingress.kubernetes.io/manage-backend-security-group-rules: "true"
+  hosts:
+    - host: ""
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+    # - secretName: myapp-tls
+    #   hosts:
+    #     - myapp.example.com
+
+externalSecret:
+  enabled: true
+  refreshInterval: 1h
+  secretStoreRef:
+    # Must match the ClusterSecretStore name created by the ansible
+    # external_secrets role (roles/external_secrets/templates/clustersecretstore.yml.j2)
+    name: aws-secrets-manager
+    kind: ClusterSecretStore
+  target:
+    name: ""
+    creationPolicy: Owner
+  data:
+    - secretKey: POSTGRES_USER
+      remoteRef:
+        key: petclinic/database
+        property: username
+    - secretKey: POSTGRES_PASS
+      remoteRef:
+        key: petclinic/database
+        property: password
+    - secretKey: POSTGRES_URL
+      remoteRef:
+        key: petclinic/database
+        property: url
+
+postgresql:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "16-alpine"
+    pullPolicy: IfNotPresent
+  replicaCount: 1
+  annotations: {}
+  auth:
+    # Point to the same Secret that ESO syncs so the DB pod and the app
+    # always use identical credentials. The key inside that secret is "POSTGRES_PASS"
+    # (see externalSecret.data above).
+    existingSecret: "petclinic"
+    existingSecretPasswordKey: "POSTGRES_PASS"
+    database: petclinic
+    username: petclinic
+    # Fallback only when externalSecret.enabled=false (local dev)
+    password: "changeme"
+  service:
+    port: 5432
+    annotations: {}
+  persistence:
+    enabled: true
+    storageClass: "gp2"
+    accessModes:
+      - ReadWriteOnce
+    size: 10Gi
+  resources:
+    limits:
+      cpu: "1"
+      memory: 1Gi
+    requests:
+      cpu: 250m
+      memory: 256Mi
