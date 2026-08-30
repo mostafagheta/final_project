@@ -17,7 +17,6 @@
 package org.springframework.samples.petclinic.owner;
 
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -114,7 +113,7 @@ class OwnerControllerTests {
 
 		Owner george = george();
 		given(this.owners.findByLastNameStartingWith(eq("Franklin"), any(Pageable.class)))
-			.willReturn(new PageImpl<>(List.of(george)));
+				.willReturn(new PageImpl<>(List.of(george)));
 
 		given(this.owners.findById(TEST_OWNER_ID)).willReturn(Optional.of(george));
 		Visit visit = new Visit();
@@ -126,9 +125,9 @@ class OwnerControllerTests {
 	@Test
 	void initCreationForm() throws Exception {
 		mockMvc.perform(get("/owners/new"))
-			.andExpect(status().isOk())
-			.andExpect(model().attributeExists("owner"))
-			.andExpect(view().name("owners/createOrUpdateOwnerForm"));
+				.andExpect(status().isOk())
+				.andExpect(model().attributeExists("owner"))
+				.andExpect(view().name("owners/createOrUpdateOwnerForm"));
 	}
 
 	@Test
@@ -136,12 +135,12 @@ class OwnerControllerTests {
 		double before = this.meterRegistry.find("petclinic_owners_created_total").counter().count();
 
 		mockMvc
-			.perform(post("/owners/new").param("firstName", "Joe")
-				.param("lastName", "Bloggs")
-				.param("address", "123 Caramel Street")
-				.param("city", "London")
-				.param("telephone", "1316761638"))
-			.andExpect(status().is3xxRedirection());
+				.perform(post("/owners/new").param("firstName", "Joe")
+						.param("lastName", "Bloggs")
+						.param("address", "123 Caramel Street")
+						.param("city", "London")
+						.param("telephone", "1316761638"))
+				.andExpect(status().is3xxRedirection());
 
 		double after = this.meterRegistry.find("petclinic_owners_created_total").counter().count();
 		org.junit.jupiter.api.Assertions.assertEquals(before + 1, after, 0.0001);
@@ -152,12 +151,13 @@ class OwnerControllerTests {
 		double before = this.meterRegistry.find("petclinic_owners_created_total").counter().count();
 
 		mockMvc
-			.perform(post("/owners/new").param("firstName", "Joe").param("lastName", "Bloggs").param("city", "London"))
-			.andExpect(status().isOk())
-			.andExpect(model().attributeHasErrors("owner"))
-			.andExpect(model().attributeHasFieldErrors("owner", "address"))
-			.andExpect(model().attributeHasFieldErrors("owner", "telephone"))
-			.andExpect(view().name("owners/createOrUpdateOwnerForm"));
+				.perform(post("/owners/new").param("firstName", "Joe").param("lastName", "Bloggs").param("city",
+						"London"))
+				.andExpect(status().isOk())
+				.andExpect(model().attributeHasErrors("owner"))
+				.andExpect(model().attributeHasFieldErrors("owner", "address"))
+				.andExpect(model().attributeHasFieldErrors("owner", "telephone"))
+				.andExpect(view().name("owners/createOrUpdateOwnerForm"));
 
 		double after = this.meterRegistry.find("petclinic_owners_created_total").counter().count();
 		org.junit.jupiter.api.Assertions.assertEquals(before, after, 0.0001);
@@ -166,31 +166,32 @@ class OwnerControllerTests {
 	@Test
 	void processCreationFormSuccess() throws Exception {
 		mockMvc
-			.perform(post("/owners/new").param("firstName", "Joe")
-				.param("lastName", "Bloggs")
-				.param("address", "123 Caramel Street")
-				.param("city", "London")
-				.param("telephone", "1316761638"))
-			.andExpect(status().is3xxRedirection());
+				.perform(post("/owners/new").param("firstName", "Joe")
+						.param("lastName", "Bloggs")
+						.param("address", "123 Caramel Street")
+						.param("city", "London")
+						.param("telephone", "1316761638"))
+				.andExpect(status().is3xxRedirection());
 	}
 
 	@Test
 	void processCreationFormHasErrors() throws Exception {
 		mockMvc
-			.perform(post("/owners/new").param("firstName", "Joe").param("lastName", "Bloggs").param("city", "London"))
-			.andExpect(status().isOk())
-			.andExpect(model().attributeHasErrors("owner"))
-			.andExpect(model().attributeHasFieldErrors("owner", "address"))
-			.andExpect(model().attributeHasFieldErrors("owner", "telephone"))
-			.andExpect(view().name("owners/createOrUpdateOwnerForm"));
+				.perform(post("/owners/new").param("firstName", "Joe").param("lastName", "Bloggs").param("city",
+						"London"))
+				.andExpect(status().isOk())
+				.andExpect(model().attributeHasErrors("owner"))
+				.andExpect(model().attributeHasFieldErrors("owner", "address"))
+				.andExpect(model().attributeHasFieldErrors("owner", "telephone"))
+				.andExpect(view().name("owners/createOrUpdateOwnerForm"));
 	}
 
 	@Test
 	void initFindForm() throws Exception {
 		mockMvc.perform(get("/owners/find"))
-			.andExpect(status().isOk())
-			.andExpect(model().attributeExists("owner"))
-			.andExpect(view().name("owners/findOwners"));
+				.andExpect(status().isOk())
+				.andExpect(model().attributeExists("owner"))
+				.andExpect(view().name("owners/findOwners"));
 	}
 
 	@Test
@@ -205,8 +206,8 @@ class OwnerControllerTests {
 		Page<Owner> tasks = new PageImpl<>(List.of(george()));
 		when(this.owners.findByLastNameStartingWith(eq("Franklin"), any(Pageable.class))).thenReturn(tasks);
 		mockMvc.perform(get("/owners?page=1").param("lastName", "Franklin"))
-			.andExpect(status().is3xxRedirection())
-			.andExpect(view().name("redirect:/owners/" + TEST_OWNER_ID));
+				.andExpect(status().is3xxRedirection())
+				.andExpect(view().name("redirect:/owners/" + TEST_OWNER_ID));
 	}
 
 	@Test
@@ -216,8 +217,8 @@ class OwnerControllerTests {
 
 		for (String lastName : List.of(" Franklin", "Franklin ", " Franklin ")) {
 			mockMvc.perform(get("/owners?page=1").param("lastName", lastName))
-				.andExpect(status().is3xxRedirection())
-				.andExpect(view().name("redirect:/owners/" + TEST_OWNER_ID));
+					.andExpect(status().is3xxRedirection())
+					.andExpect(view().name("redirect:/owners/" + TEST_OWNER_ID));
 		}
 
 		verify(this.owners, times(3)).findByLastNameStartingWith(eq("Franklin"), any(Pageable.class));
@@ -229,8 +230,8 @@ class OwnerControllerTests {
 		when(this.owners.findByLastNameStartingWith(eq(""), any(Pageable.class))).thenReturn(tasks);
 
 		mockMvc.perform(get("/owners?page=1").param("lastName", "   "))
-			.andExpect(status().isOk())
-			.andExpect(view().name("owners/ownersList"));
+				.andExpect(status().isOk())
+				.andExpect(view().name("owners/ownersList"));
 
 		verify(this.owners).findByLastNameStartingWith(eq(""), any(Pageable.class));
 	}
@@ -240,72 +241,72 @@ class OwnerControllerTests {
 		Page<Owner> tasks = new PageImpl<>(List.of());
 		when(this.owners.findByLastNameStartingWith(eq("Unknown Surname"), any(Pageable.class))).thenReturn(tasks);
 		mockMvc.perform(get("/owners?page=1").param("lastName", "Unknown Surname"))
-			.andExpect(status().isOk())
-			.andExpect(model().attributeHasFieldErrors("owner", "lastName"))
-			.andExpect(model().attributeHasFieldErrorCode("owner", "lastName", "notFound"))
-			.andExpect(view().name("owners/findOwners"));
+				.andExpect(status().isOk())
+				.andExpect(model().attributeHasFieldErrors("owner", "lastName"))
+				.andExpect(model().attributeHasFieldErrorCode("owner", "lastName", "notFound"))
+				.andExpect(view().name("owners/findOwners"));
 
 	}
 
 	@Test
 	void initUpdateOwnerForm() throws Exception {
 		mockMvc.perform(get("/owners/{ownerId}/edit", TEST_OWNER_ID))
-			.andExpect(status().isOk())
-			.andExpect(model().attributeExists("owner"))
-			.andExpect(model().attribute("owner", hasProperty("lastName", is("Franklin"))))
-			.andExpect(model().attribute("owner", hasProperty("firstName", is("George"))))
-			.andExpect(model().attribute("owner", hasProperty("address", is("110 W. Liberty St."))))
-			.andExpect(model().attribute("owner", hasProperty("city", is("Madison"))))
-			.andExpect(model().attribute("owner", hasProperty("telephone", is("6085551023"))))
-			.andExpect(view().name("owners/createOrUpdateOwnerForm"));
+				.andExpect(status().isOk())
+				.andExpect(model().attributeExists("owner"))
+				.andExpect(model().attribute("owner", hasProperty("lastName", is("Franklin"))))
+				.andExpect(model().attribute("owner", hasProperty("firstName", is("George"))))
+				.andExpect(model().attribute("owner", hasProperty("address", is("110 W. Liberty St."))))
+				.andExpect(model().attribute("owner", hasProperty("city", is("Madison"))))
+				.andExpect(model().attribute("owner", hasProperty("telephone", is("6085551023"))))
+				.andExpect(view().name("owners/createOrUpdateOwnerForm"));
 	}
 
 	@Test
 	void processUpdateOwnerFormSuccess() throws Exception {
 		mockMvc
-			.perform(post("/owners/{ownerId}/edit", TEST_OWNER_ID).param("firstName", "Joe")
-				.param("lastName", "Bloggs")
-				.param("address", "123 Caramel Street")
-				.param("city", "London")
-				.param("telephone", "1616291589"))
-			.andExpect(status().is3xxRedirection())
-			.andExpect(view().name("redirect:/owners/{ownerId}"));
+				.perform(post("/owners/{ownerId}/edit", TEST_OWNER_ID).param("firstName", "Joe")
+						.param("lastName", "Bloggs")
+						.param("address", "123 Caramel Street")
+						.param("city", "London")
+						.param("telephone", "1616291589"))
+				.andExpect(status().is3xxRedirection())
+				.andExpect(view().name("redirect:/owners/{ownerId}"));
 	}
 
 	@Test
 	void processUpdateOwnerFormUnchangedSuccess() throws Exception {
 		mockMvc.perform(post("/owners/{ownerId}/edit", TEST_OWNER_ID))
-			.andExpect(status().is3xxRedirection())
-			.andExpect(view().name("redirect:/owners/{ownerId}"));
+				.andExpect(status().is3xxRedirection())
+				.andExpect(view().name("redirect:/owners/{ownerId}"));
 	}
 
 	@Test
 	void processUpdateOwnerFormHasErrors() throws Exception {
 		mockMvc
-			.perform(post("/owners/{ownerId}/edit", TEST_OWNER_ID).param("firstName", "Joe")
-				.param("lastName", "Bloggs")
-				.param("address", "")
-				.param("telephone", ""))
-			.andExpect(status().isOk())
-			.andExpect(model().attributeHasErrors("owner"))
-			.andExpect(model().attributeHasFieldErrors("owner", "address"))
-			.andExpect(model().attributeHasFieldErrors("owner", "telephone"))
-			.andExpect(view().name("owners/createOrUpdateOwnerForm"));
+				.perform(post("/owners/{ownerId}/edit", TEST_OWNER_ID).param("firstName", "Joe")
+						.param("lastName", "Bloggs")
+						.param("address", "")
+						.param("telephone", ""))
+				.andExpect(status().isOk())
+				.andExpect(model().attributeHasErrors("owner"))
+				.andExpect(model().attributeHasFieldErrors("owner", "address"))
+				.andExpect(model().attributeHasFieldErrors("owner", "telephone"))
+				.andExpect(view().name("owners/createOrUpdateOwnerForm"));
 	}
 
 	@Test
 	void showOwner() throws Exception {
 		mockMvc.perform(get("/owners/{ownerId}", TEST_OWNER_ID))
-			.andExpect(status().isOk())
-			.andExpect(model().attribute("owner", hasProperty("lastName", is("Franklin"))))
-			.andExpect(model().attribute("owner", hasProperty("firstName", is("George"))))
-			.andExpect(model().attribute("owner", hasProperty("address", is("110 W. Liberty St."))))
-			.andExpect(model().attribute("owner", hasProperty("city", is("Madison"))))
-			.andExpect(model().attribute("owner", hasProperty("telephone", is("6085551023"))))
-			.andExpect(model().attribute("owner", hasProperty("pets", not(empty()))))
-			.andExpect(model().attribute("owner",
-					hasProperty("pets", hasItem(hasProperty("visits", hasSize(greaterThan(0)))))))
-			.andExpect(view().name("owners/ownerDetails"));
+				.andExpect(status().isOk())
+				.andExpect(model().attribute("owner", hasProperty("lastName", is("Franklin"))))
+				.andExpect(model().attribute("owner", hasProperty("firstName", is("George"))))
+				.andExpect(model().attribute("owner", hasProperty("address", is("110 W. Liberty St."))))
+				.andExpect(model().attribute("owner", hasProperty("city", is("Madison"))))
+				.andExpect(model().attribute("owner", hasProperty("telephone", is("6085551023"))))
+				.andExpect(model().attribute("owner", hasProperty("pets", not(empty()))))
+				.andExpect(model().attribute("owner",
+						hasProperty("pets", hasItem(hasProperty("visits", hasSize(greaterThan(0)))))))
+				.andExpect(view().name("owners/ownerDetails"));
 	}
 
 	@Test
@@ -323,9 +324,9 @@ class OwnerControllerTests {
 		when(owners.findById(pathOwnerId)).thenReturn(Optional.of(owner));
 
 		mockMvc.perform(MockMvcRequestBuilders.post("/owners/{ownerId}/edit", pathOwnerId).flashAttr("owner", owner))
-			.andExpect(status().is3xxRedirection())
-			.andExpect(redirectedUrl("/owners/" + pathOwnerId + "/edit"))
-			.andExpect(flash().attributeExists("error"));
+				.andExpect(status().is3xxRedirection())
+				.andExpect(redirectedUrl("/owners/" + pathOwnerId + "/edit"))
+				.andExpect(flash().attributeExists("error"));
 	}
 
 }
