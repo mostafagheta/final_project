@@ -1,0 +1,64 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: petclinic-alerts-dev
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: petclinic.dev.rules
+      rules:
+        - alert: PetclinicAppDown
+          expr: up{environment="petclinic-dev"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: Petclinic dev app is down
+            description: The Petclinic dev target is not being scraped by Prometheus.
+
+        - alert: PetclinicHigh5xxRate
+          expr: sum(rate(http_server_requests_seconds_count{environment="petclinic-dev",status=~"5.."}[5m])) / sum(rate(http_server_requests_seconds_count{environment="petclinic-dev"}[5m])) * 100 > 5
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: High 5xx error rate in dev
+            description: More than 5% of requests are returning 5xx in the petclinic-dev environment.
+
+        - alert: PetclinicSlowResponses
+          expr: histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{environment="petclinic-dev"}[5m]))) > 1
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Petclinic dev response latency is too high
+            description: P95 latency is above 1 second in petclinic-dev.
+
+        - alert: PetclinicOwnersCreatedSpike
+          expr: rate(petclinic_owners_created_total{environment="petclinic-dev"}[15m]) > 1
+          for: 15m
+          labels:
+            severity: info
+          annotations:
+            summary: Petclinic dev owners creation is increasing
+            description: Owners creation rate in dev is above 1 per second for 15 minutes.
+
+        - alert: PetclinicPetsCreatedSpike
+          expr: rate(petclinic_pets_created_total{environment="petclinic-dev"}[15m]) > 1
+          for: 15m
+          labels:
+            severity: info
+          annotations:
+            summary: Petclinic dev pets creation is increasing
+            description: Pets creation rate in dev is above 1 per second for 15 minutes.
+
+        - alert: PetclinicVisitsCreatedSpike
+          expr: rate(petclinic_visits_created_total{environment="petclinic-dev"}[15m]) > 1
+          for: 15m
+          labels:
+            severity: info
+          annotations:
+            summary: Petclinic dev visits creation is increasing
+            description: Visits creation rate in dev is above 1 per second for 15 minutes.
