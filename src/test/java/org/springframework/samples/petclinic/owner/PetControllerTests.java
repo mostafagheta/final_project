@@ -16,12 +16,17 @@
 
 package org.springframework.samples.petclinic.owner;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledInNativeImage;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
 import org.springframework.test.context.aot.DisabledInAotMode;
@@ -50,9 +55,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  */
 @WebMvcTest(value = PetController.class,
 		includeFilters = @ComponentScan.Filter(value = PetTypeFormatter.class, type = FilterType.ASSIGNABLE_TYPE))
+@Import(PetControllerTests.MeterRegistryTestConfig.class)
 @DisabledInNativeImage
 @DisabledInAotMode
 class PetControllerTests {
+
+	@TestConfiguration
+	static class MeterRegistryTestConfig {
+
+		@Bean
+		MeterRegistry meterRegistry() {
+			return new SimpleMeterRegistry();
+		}
+
+	}
 
 	private static final int TEST_OWNER_ID = 1;
 
@@ -60,6 +76,9 @@ class PetControllerTests {
 
 	@Autowired
 	private MockMvc mockMvc;
+
+	@Autowired
+	private MeterRegistry meterRegistry;
 
 	@MockitoBean
 	private OwnerRepository owners;
@@ -92,6 +111,38 @@ class PetControllerTests {
 			.andExpect(status().isOk())
 			.andExpect(view().name("pets/createOrUpdatePetForm"))
 			.andExpect(model().attributeExists("pet"));
+	}
+
+	@Test
+	void processCreationFormSuccessIncrementsPetCreationMetric() throws Exception {
+		double before = this.meterRegistry.find("petclinic_pets_created_total").counter().count();
+
+		mockMvc
+			.perform(post("/owners/{ownerId}/pets/new", TEST_OWNER_ID).param("name", "Betty")
+				.param("type", "hamster")
+				.param("birthDate", "2015-02-12"))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(view().name("redirect:/owners/{ownerId}"));
+
+		double after = this.meterRegistry.find("petclinic_pets_created_total").counter().count();
+		org.junit.jupiter.api.Assertions.assertEquals(before + 1, after, 0.0001);
+	}
+
+	@Test
+	void processCreationFormHasErrorsDoesNotIncrementPetCreationMetric() throws Exception {
+		double before = this.meterRegistry.find("petclinic_pets_created_total").counter().count();
+
+		mockMvc
+			.perform(post("/owners/{ownerId}/pets/new", TEST_OWNER_ID).param("name", "Betty")
+				.param("birthDate", "2015-02-12"))
+			.andExpect(model().attributeHasNoErrors("owner"))
+			.andExpect(model().attributeHasErrors("pet"))
+			.andExpect(model().attributeHasFieldErrors("pet", "type"))
+			.andExpect(status().isOk())
+			.andExpect(view().name("pets/createOrUpdatePetForm"));
+
+		double after = this.meterRegistry.find("petclinic_pets_created_total").counter().count();
+		org.junit.jupiter.api.Assertions.assertEquals(before, after, 0.0001);
 	}
 
 	@Test

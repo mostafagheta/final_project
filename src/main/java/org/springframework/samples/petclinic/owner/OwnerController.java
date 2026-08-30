@@ -19,6 +19,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -52,8 +54,13 @@ class OwnerController {
 
 	private final OwnerRepository owners;
 
-	public OwnerController(OwnerRepository owners) {
+	private final Counter ownersCreatedCounter;
+
+	public OwnerController(OwnerRepository owners, MeterRegistry meterRegistry) {
 		this.owners = owners;
+		this.ownersCreatedCounter = Counter.builder("petclinic_owners_created_total")
+			.description("Number of owners successfully created")
+			.register(meterRegistry);
 	}
 
 	@InitBinder
@@ -82,6 +89,7 @@ class OwnerController {
 		}
 
 		this.owners.save(owner);
+		this.ownersCreatedCounter.increment();
 		redirectAttributes.addFlashAttribute("message", "New Owner Created");
 		return "redirect:/owners/" + owner.getId();
 	}

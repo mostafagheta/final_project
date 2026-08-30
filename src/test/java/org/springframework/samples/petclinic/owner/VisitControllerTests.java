@@ -23,11 +23,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view;
 
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledInNativeImage;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.aot.DisabledInAotMode;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -42,9 +47,20 @@ import java.util.Optional;
  * @author Wick Dynex
  */
 @WebMvcTest(VisitController.class)
+@Import(VisitControllerTests.MeterRegistryTestConfig.class)
 @DisabledInNativeImage
 @DisabledInAotMode
 class VisitControllerTests {
+
+	@TestConfiguration
+	static class MeterRegistryTestConfig {
+
+		@Bean
+		MeterRegistry meterRegistry() {
+			return new SimpleMeterRegistry();
+		}
+
+	}
 
 	private static final int TEST_OWNER_ID = 1;
 
@@ -52,6 +68,9 @@ class VisitControllerTests {
 
 	@Autowired
 	private MockMvc mockMvc;
+
+	@Autowired
+	private MeterRegistry meterRegistry;
 
 	@MockitoBean
 	private OwnerRepository owners;
@@ -70,6 +89,37 @@ class VisitControllerTests {
 		mockMvc.perform(get("/owners/{ownerId}/pets/{petId}/visits/new", TEST_OWNER_ID, TEST_PET_ID))
 			.andExpect(status().isOk())
 			.andExpect(view().name("pets/createOrUpdateVisitForm"));
+	}
+
+	@Test
+	void processNewVisitFormSuccessIncrementsVisitCreationMetric() throws Exception {
+		double before = this.meterRegistry.find("petclinic_visits_created_total").counter().count();
+
+		mockMvc
+			.perform(post("/owners/{ownerId}/pets/{petId}/visits/new", TEST_OWNER_ID, TEST_PET_ID)
+				.param("name", "George")
+				.param("date", LocalDate.now().plusDays(1).toString())
+				.param("description", "Visit Description"))
+			.andExpect(status().is3xxRedirection())
+			.andExpect(view().name("redirect:/owners/{ownerId}"));
+
+		double after = this.meterRegistry.find("petclinic_visits_created_total").counter().count();
+		org.junit.jupiter.api.Assertions.assertEquals(before + 1, after, 0.0001);
+	}
+
+	@Test
+	void processNewVisitFormHasErrorsDoesNotIncrementVisitCreationMetric() throws Exception {
+		double before = this.meterRegistry.find("petclinic_visits_created_total").counter().count();
+
+		mockMvc
+			.perform(post("/owners/{ownerId}/pets/{petId}/visits/new", TEST_OWNER_ID, TEST_PET_ID).param("name",
+					"George"))
+			.andExpect(model().attributeHasErrors("visit"))
+			.andExpect(status().isOk())
+			.andExpect(view().name("pets/createOrUpdateVisitForm"));
+
+		double after = this.meterRegistry.find("petclinic_visits_created_total").counter().count();
+		org.junit.jupiter.api.Assertions.assertEquals(before, after, 0.0001);
 	}
 
 	@Test

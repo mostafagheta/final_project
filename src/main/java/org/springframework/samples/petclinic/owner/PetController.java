@@ -20,6 +20,8 @@ import java.util.Collection;
 import java.util.Objects;
 import java.util.Optional;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.ModelMap;
@@ -54,9 +56,14 @@ class PetController {
 
 	private final PetTypeRepository types;
 
-	public PetController(OwnerRepository owners, PetTypeRepository types) {
+	private final Counter petsCreatedCounter;
+
+	public PetController(OwnerRepository owners, PetTypeRepository types, MeterRegistry meterRegistry) {
 		this.owners = owners;
 		this.types = types;
+		this.petsCreatedCounter = Counter.builder("petclinic_pets_created_total")
+			.description("Number of pets successfully created")
+			.register(meterRegistry);
 	}
 
 	@ModelAttribute("types")
@@ -132,6 +139,7 @@ class PetController {
 			result.rejectValue("name", "duplicate", "already exists");
 			return VIEWS_PETS_CREATE_OR_UPDATE_FORM;
 		}
+		this.petsCreatedCounter.increment();
 		redirectAttributes.addFlashAttribute("message", "New Pet has been Added");
 		return "redirect:/owners/{ownerId}";
 	}
