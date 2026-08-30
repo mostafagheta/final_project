@@ -1,0 +1,64 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: petclinic-alerts-test
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: petclinic.test.rules
+      rules:
+        - alert: PetclinicAppDown
+          expr: up{environment="petclinic-test"} == 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: Petclinic test app is down
+            description: The Petclinic test target is not being scraped by Prometheus.
+
+        - alert: PetclinicHigh5xxRate
+          expr: sum(rate(http_server_requests_seconds_count{environment="petclinic-test",status=~"5.."}[5m])) / sum(rate(http_server_requests_seconds_count{environment="petclinic-test"}[5m])) * 100 > 5
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: High 5xx error rate in test
+            description: More than 5% of requests are returning 5xx in the petclinic-test environment.
+
+        - alert: PetclinicSlowResponses
+          expr: histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{environment="petclinic-test"}[5m]))) > 1
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Petclinic test response latency is too high
+            description: P95 latency is above 1 second in petclinic-test.
+
+        - alert: PetclinicOwnersCreatedSpike
+          expr: rate(petclinic_owners_created_total{environment="petclinic-test"}[15m]) > 1
+          for: 15m
+          labels:
+            severity: info
+          annotations:
+            summary: Petclinic test owners creation is increasing
+            description: Owners creation rate in test is above 1 per second for 15 minutes.
+
+        - alert: PetclinicPetsCreatedSpike
+          expr: rate(petclinic_pets_created_total{environment="petclinic-test"}[15m]) > 1
+          for: 15m
+          labels:
+            severity: info
+          annotations:
+            summary: Petclinic test pets creation is increasing
+            description: Pets creation rate in test is above 1 per second for 15 minutes.
+
+        - alert: PetclinicVisitsCreatedSpike
+          expr: rate(petclinic_visits_created_total{environment="petclinic-test"}[15m]) > 1
+          for: 15m
+          labels:
+            severity: info
+          annotations:
+            summary: Petclinic test visits creation is increasing
+            description: Visits creation rate in test is above 1 per second for 15 minutes.
