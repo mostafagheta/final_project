@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: alertmanager-slack-dev
+  namespace: monitoring
+  labels:
+    app: kube-prometheus-stack-alertmanager
+    release: kube-prometheus-stack
+stringData:
+  webhook_url: ""  #replace with external secret manager reference
+---
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: petclinic-alertmanager-dev
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  route:
+    receiver: slack-dev
+    groupBy: ['alertname', 'namespace', 'severity']
+    groupWait: 30s
+    groupInterval: 5m
+    repeatInterval: 1h
+    matchers:
+      - name: environment
+        matchType: '='
+        value: "petclinic-dev"
+  receivers:
+    - name: slack-dev
+      slackConfigs:
+        - apiURL:
+            name: alertmanager-slack-dev
+            key: webhook_url
+          channel: '#alerts'
+          sendResolved: true
+          text: '{{ template "slack.default.text" . }}'
+          title: '{{ template "slack.default.title" . }}'
