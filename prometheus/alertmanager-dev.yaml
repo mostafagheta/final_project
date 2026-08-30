@@ -8,6 +8,7 @@ metadata:
     release: kube-prometheus-stack
 stringData:
   webhook_url: ""  #replace with external secret manager reference
+type: Opaque
 ---
 apiVersion: monitoring.coreos.com/v1alpha1
 kind: AlertmanagerConfig
