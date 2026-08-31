@@ -39,7 +39,7 @@ autoscaling:
   hpa:
     enabled: true
     minReplicas: 3
-    maxReplicas: 10
+    maxReplicas: 6
     targetCPUUtilizationPercentage: 70
     targetMemoryUtilizationPercentage: 80
   vpa:
