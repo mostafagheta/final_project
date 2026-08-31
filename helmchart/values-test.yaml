@@ -43,7 +43,7 @@ autoscaling:
     targetCPUUtilizationPercentage: 70
     targetMemoryUtilizationPercentage: 80
   vpa:
-    enabled: false
+    enabled: true
 
 ingress:
   enabled: true

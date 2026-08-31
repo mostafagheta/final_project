@@ -43,7 +43,7 @@ autoscaling:
     targetCPUUtilizationPercentage: 70
     targetMemoryUtilizationPercentage: 80
   vpa:
-    enabled: false            # Enable if VPA is installed in the cluster
+    enabled: true           # Enable if VPA is installed in the cluster
     updateMode: "Auto"
     controlledResources:
       - cpu
