@@ -21,8 +21,8 @@ fullnameOverride: "petclinic"
 # Reduced resources for dev — saves cost, runs on smaller nodes
 resources:
   limits:
-    cpu: 250m
-    memory: 256Mi
+    cpu: 500m
+    memory: 512Mi
   requests:
     cpu: 50m
     memory: 128Mi
