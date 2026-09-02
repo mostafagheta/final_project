@@ -36,5 +36,12 @@ spec:
             key: webhook_url
           channel: '#alerts'
           sendResolved: true
-          text: '{{ template "slack.default.text" . }}'
-          title: '{{ template "slack.default.title" . }}'
+          text: |
+            *Alert*: {{ .CommonLabels.alertname }}
+            *Severity*: {{ .CommonLabels.severity }}
+            *Environment*: {{ .CommonLabels.environment }}
+            *Namespace*: {{ .CommonLabels.namespace }}
+            *Summary*: {{ .CommonAnnotations.summary }}
+            *Description*: {{ .CommonAnnotations.description }}
+            *Alert URL*: {{ .ExternalURL }}
+          title: '{{ .CommonLabels.alertname }} - {{ .Status | toUpper }}'

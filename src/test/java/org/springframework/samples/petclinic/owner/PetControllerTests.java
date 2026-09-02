@@ -114,7 +114,7 @@ class PetControllerTests {
 	}
 
 	@Test
-	void processCreationFormSuccessIncrementsPetCreationMetric() throws Exception {
+	void processCreationFormSuccessIncrementsPetCreationMetric() throws Exception { #Monitoring
 		double before = this.meterRegistry.find("petclinic_pets_created_total").counter().count();
 
 		mockMvc
@@ -129,7 +129,7 @@ class PetControllerTests {
 	}
 
 	@Test
-	void processCreationFormHasErrorsDoesNotIncrementPetCreationMetric() throws Exception {
+	void processCreationFormHasErrorsDoesNotIncrementPetCreationMetric() throws Exception { #Monitoring
 		double before = this.meterRegistry.find("petclinic_pets_created_total").counter().count();
 
 		mockMvc

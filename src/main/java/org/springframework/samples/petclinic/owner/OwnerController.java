@@ -89,7 +89,7 @@ class OwnerController {
 		}
 
 		this.owners.save(owner);
-		this.ownersCreatedCounter.increment();
+		this.ownersCreatedCounter.increment();   #increasing the counter for num of owners #Monitoring
 		redirectAttributes.addFlashAttribute("message", "New Owner Created");
 		return "redirect:/owners/" + owner.getId();
 	}

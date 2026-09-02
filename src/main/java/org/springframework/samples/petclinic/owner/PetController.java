@@ -139,7 +139,7 @@ class PetController {
 			result.rejectValue("name", "duplicate", "already exists");
 			return VIEWS_PETS_CREATE_OR_UPDATE_FORM;
 		}
-		this.petsCreatedCounter.increment();
+		this.petsCreatedCounter.increment(); #Monitoring
 		redirectAttributes.addFlashAttribute("message", "New Pet has been Added");
 		return "redirect:/owners/{ownerId}";
 	}

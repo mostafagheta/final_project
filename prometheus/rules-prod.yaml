@@ -7,6 +7,344 @@ metadata:
     release: kube-prometheus-stack
 spec:
   groups:
+    # PETCLINIC PRODUCTION - SLIs / SLOs / ERROR BUDGET
+    - name: petclinic.prod.sli
+      rules:
+        # Availability SLI - short windows
+        - record: petclinic:http_requests_successful:rate5m
+          expr: |
+            sum by (environment) (
+              rate(
+                http_server_requests_seconds_count{
+                  environment="petclinic-prod",
+                  status=~"2..|3.."
+                }[5m]
+              )
+            )
+
+        - record: petclinic:http_requests_eligible:rate5m
+          expr: |
+            sum by (environment) (
+              rate(
+                http_server_requests_seconds_count{
+                  environment="petclinic-prod",
+                  status=~"2..|3..|5.."
+                }[5m]
+              )
+            )
+
+        - record: petclinic:http_requests_errors:rate5m
+          expr: |
+            sum by (environment) (
+              rate(
+                http_server_requests_seconds_count{
+                  environment="petclinic-prod",
+                  status=~"5.."
+                }[5m]
+              )
+            )
+
+        - record: petclinic:availability_sli:5m
+          expr: |
+            petclinic:http_requests_successful:rate5m
+            /
+            petclinic:http_requests_eligible:rate5m
+
+        - record: petclinic:availability_error_rate:5m
+          expr: |
+            1 - petclinic:availability_sli:5m
+
+        - record: petclinic:availability_sli:30m
+          expr: |
+            sum(
+              rate(
+                http_server_requests_seconds_count{
+                  environment="petclinic-prod",
+                  status=~"2..|3.."
+                }[30m]
+              )
+            )
+            /
+            sum(
+              rate(
+                http_server_requests_seconds_count{
+                  environment="petclinic-prod",
+                  status=~"2..|3..|5.."
+                }[30m]
+              )
+            )
+
+        - record: petclinic:availability_error_rate:30m
+          expr: |
+            1 - petclinic:availability_sli:30m
+
+        - record: petclinic:availability_sli:1h
+          expr: |
+            sum(
+              rate(
+                http_server_requests_seconds_count{
+                  environment="petclinic-prod",
+                  status=~"2..|3.."
+                }[1h]
+              )
+            )
+            /
+            sum(
+              rate(
+                http_server_requests_seconds_count{
+                  environment="petclinic-prod",
+                  status=~"2..|3..|5.."
+                }[1h]
+              )
+            )
+
+        - record: petclinic:availability_error_rate:1h
+          expr: |
+            1 - petclinic:availability_sli:1h
+
+        - record: petclinic:availability_sli:6h
+          expr: |
+            sum(
+              rate(
+                http_server_requests_seconds_count{
+                  environment="petclinic-prod",
+                  status=~"2..|3.."
+                }[6h]
+              )
+            )
+            /
+            sum(
+              rate(
+                http_server_requests_seconds_count{
+                  environment="petclinic-prod",
+                  status=~"2..|3..|5.."
+                }[6h]
+              )
+            )
+
+        - record: petclinic:availability_error_rate:6h
+          expr: |
+            1 - petclinic:availability_sli:6h
+
+        # Availability SLI - 30 days
+        # This is the main SLI used to evaluate the 99.9% availability SLO.
+
+        - record: petclinic:availability_sli:30d
+          expr: |
+            sum(
+              increase(
+                http_server_requests_seconds_count{
+                  environment="petclinic-prod",
+                  status=~"2..|3.."
+                }[30d]
+              )
+            )
+            /
+            sum(
+              increase(
+                http_server_requests_seconds_count{
+                  environment="petclinic-prod",
+                  status=~"2..|3..|5.."
+                }[30d]
+              )
+            )
+
+        - record: petclinic:availability_error_rate:30d
+          expr: |
+            1 - petclinic:availability_sli:30d
+
+        # 99.9% SLO leaves a 0.1% error budget so 0.001 is the maximum allowed error rate
+        - record: petclinic:availability_error_budget_remaining:30d
+          expr: |
+            0.001 - petclinic:availability_error_rate:30d
+
+        # 30 days = 2,592,000 seconds = 43,200 minutes.
+        - record: petclinic:availability_error_budget_remaining_minutes:30d
+          expr: |
+            (0.001 - petclinic:availability_error_rate:30d) * 43200
+
+        # Correctness SLI - successful responses as a share of all requests.
+        # This is distinct from availability: it measures whether the app is
+        # returning correct/valid responses, not just whether the service is up.
+        - record: petclinic:request_correctness_successful:30d
+          expr: |
+            sum(
+              increase(
+                http_server_requests_seconds_count{
+                  environment="petclinic-prod",
+                  status=~"2.."
+                }[30d]
+              )
+            )
+
+        - record: petclinic:request_correctness_total:30d
+          expr: |
+            sum(
+              increase(
+                http_server_requests_seconds_count{
+                  environment="petclinic-prod"
+                }[30d]
+              )
+            )
+
+        - record: petclinic:correctness_sli:30d
+          expr: |
+            petclinic:request_correctness_successful:30d
+            /
+            petclinic:request_correctness_total:30d
+
+        - record: petclinic:correctness_error_rate:30d
+          expr: |
+            1 - petclinic:correctness_sli:30d
+
+        # Overall production SLO = average of availability, correctness, and latency
+        # Formula: (availability + correctness + latency) / 3 * 100
+        - record: petclinic:total_slo:30d
+          expr: |
+            (
+              (
+                petclinic:availability_sli:30d
+                + petclinic:correctness_sli:30d
+                + petclinic:latency_sli:30d
+              )
+              / 3
+            ) * 100
+
+        # Latency SLI - 99% under 1 second
+        # Numerator = successful requests whose observed latency is <= 1s.
+
+        - record: petclinic:latency_sli:5m
+          expr: |
+            sum(
+              rate(
+                http_server_requests_seconds_bucket{
+                  environment="petclinic-prod",
+                  status=~"2..|3..",
+                  le="1.0"                   # requests completed in 1 second or less
+                }[5m]
+              )
+            )
+            /
+            sum(
+              rate(
+                http_server_requests_seconds_count{
+                  environment="petclinic-prod",
+                  status=~"2..|3.."
+                }[5m]
+              )
+            )
+
+        - record: petclinic:latency_sli:30d
+          expr: |
+            sum(
+              increase(
+                http_server_requests_seconds_bucket{
+                  environment="petclinic-prod",
+                  status=~"2..|3..",
+                  le="1.0"
+                }[30d]
+              )
+            )
+            /
+            sum(
+              increase(
+                http_server_requests_seconds_count{
+                  environment="petclinic-prod",
+                  status=~"2..|3.."
+                }[30d]
+              )
+            )
+
+        # P95/P99 are operational latency indicators. The latency SLO above
+        - record: petclinic:http_request_latency_p95:seconds
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum by (le, environment) (
+                rate(
+                  http_server_requests_seconds_bucket{
+                    environment="petclinic-prod"
+                  }[5m]
+                )
+              )
+            )
+
+        - record: petclinic:http_request_latency_p99:seconds
+          expr: |
+            histogram_quantile(
+              0.99,
+              sum by (le, environment) (
+                rate(
+                  http_server_requests_seconds_bucket{
+                    environment="petclinic-prod"
+                  }[5m]
+                )
+              )
+            )
+
+        # SATURATION SLI - MEMORY
+
+        - record: petclinic:memory_saturation:5m
+          expr: |
+            (
+              sum(
+                container_memory_working_set_bytes{
+                  namespace="petclinic-prod",
+                  container!="",
+                  image!=""
+                }
+              )
+              /
+              sum(
+                kube_pod_container_resource_limits{
+                  namespace="petclinic-prod",
+                  resource="memory",
+                  unit="byte"
+                }
+              )
+            ) * 100
+
+        # Memory saturation SLI:
+        - record: petclinic:memory_saturation_sli:5m
+          expr: |
+            (
+              petclinic:memory_saturation:5m < bool 0.95
+            )
+
+        # SATURATION SLI - CPU
+  
+        - record: petclinic:cpu_saturation:5m
+          expr: |
+            (
+              sum(
+                rate(
+                  container_cpu_usage_seconds_total{
+                    namespace="petclinic-prod",
+                    container!="",
+                    image!=""
+                  }[5m]
+                )
+              )
+              /
+              sum(
+                kube_pod_container_resource_limits{
+                  namespace="petclinic-prod",
+                  resource="cpu",
+                  unit="core"
+                }
+              )
+            ) * 100
+
+        # CPU saturation SLI:
+        # 1 = CPU saturation is below 95%
+        # 0 = CPU saturation is at or above 95%
+        - record: petclinic:cpu_saturation_sli:5m
+          expr: |
+            (
+              petclinic:cpu_saturation:5m < bool 0.95
+            )
+
+    # PETCLINIC PRODUCTION - ALERTS
     - name: petclinic.prod.rules
       rules:
         - alert: PetclinicAppDown
@@ -16,49 +354,126 @@ spec:
             severity: critical
           annotations:
             summary: Petclinic prod app is down
-            description: The Petclinic prod target is not being scraped by Prometheus.
+            description: The Petclinic prod target has failed Prometheus scraping for more than 2 minutes.
 
+        # The actual 30-day availability SLO is below the 99.9% target.
+        - alert: PetclinicAvailabilitySLOBreach
+          expr: petclinic:availability_sli:30d < 0.999
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: Petclinic prod availability SLO is below 99.9%
+            description: The rolling 30-day availability SLI is below the 99.9% production SLO. The availability error budget is being exhausted.
+
+        # Warn before the 0.1% availability error budget is fully consumed.
+        # 25% remaining means only 25% of the original error budget remains.
+        - alert: PetclinicAvailabilityErrorBudgetLow
+          expr: petclinic:availability_error_budget_remaining:30d < 0.00025
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: Petclinic prod availability error budget is low
+            description: Less than 25% of the 0.1% availability error budget remains for the rolling 30-day window.
+
+        - alert: PetclinicCorrectnessSLOBreach
+          expr: petclinic:correctness_sli:30d < 0.999
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Petclinic prod correctness SLO is below target
+            description: The rolling 30-day correctness SLI is below the 99.9% business correctness target. Invalid or failed responses are trending above the allowed threshold.
+
+        # MEMORY SATURATION ALERT
+        - alert: PetclinicHighMemorySaturation
+          expr: petclinic:memory_saturation:5m >= 0.95
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Petclinic prod memory saturation is high
+            description: Petclinic production memory utilization has reached or exceeded 95% of the configured container memory limits for 10 minutes.
+
+        # CPU SATURATION ALERT
+        - alert: PetclinicHighCPUSaturation
+          expr: petclinic:cpu_saturation:5m >= 0.95
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Petclinic prod CPU saturation is high
+            description: Petclinic production CPU utilization has reached or exceeded 95% of the configured container CPU limits for 10 minutes.
+
+        # HTTP error-rate symptom
         - alert: PetclinicHigh5xxRate
-          expr: sum(rate(http_server_requests_seconds_count{environment="petclinic-prod",status=~"5.."}[5m])) / sum(rate(http_server_requests_seconds_count{environment="petclinic-prod"}[5m])) * 100 > 5
+          expr: |
+            (
+              petclinic:http_requests_errors:rate5m
+              /
+              petclinic:http_requests_eligible:rate5m
+            ) * 100 > 5
           for: 5m
           labels:
             severity: warning
           annotations:
             summary: High 5xx error rate in prod
-            description: More than 5% of requests are returning 5xx in the petclinic-prod environment.
+            description: More than 5% of eligible Petclinic production requests are returning HTTP 5xx for 5 minutes.
 
-        - alert: PetclinicSlowResponses
-          expr: histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{environment="petclinic-prod"}[5m]))) > 1
+        # Latency SLO and symptoms
+        - alert: PetclinicLatencySLOBreach
+          expr: petclinic:latency_sli:30d < 0.99
           for: 10m
           labels:
             severity: warning
           annotations:
-            summary: Petclinic prod response latency is too high
-            description: P95 latency is above 1 second in petclinic-prod.
+            summary: Petclinic prod latency SLO is below target
+            description: Fewer than 99% of successful production requests completed within 1 second over the rolling 30-day window.
+
+        - alert: PetclinicSlowResponses
+          expr: petclinic:http_request_latency_p95:seconds > 1
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Petclinic prod response latency is high
+            description: Production P95 HTTP response latency has been above 1 second for 10 minutes.
+
+        - alert: PetclinicLatencyP99High
+          expr: petclinic:http_request_latency_p99:seconds > 1
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: Petclinic prod P99 latency is above 1 second
+            description: Production P99 HTTP response latency has been above the 1-second latency objective for 10 minutes.
+
+        # Business/traffic indicators
 
         - alert: PetclinicOwnersCreatedSpike
-          expr: rate(petclinic_owners_created_total{environment="petclinic-prod"}[15m]) > 1
+          expr: rate(petclinic_owners_created_total{environment="petclinic-prod"}[15m]) > 1000
           for: 15m
           labels:
             severity: info
           annotations:
-            summary: Petclinic prod owners creation is increasing
-            description: Owners creation rate in prod is above 1 per second for 15 minutes.
+            summary: Petclinic prod owner creation rate is unusually high
+            description: Owner creation rate in production has remained above 1000 per second for 15 minutes. Investigate for unusual traffic, automation, load testing, or potential abuse.
 
         - alert: PetclinicPetsCreatedSpike
-          expr: rate(petclinic_pets_created_total{environment="petclinic-prod"}[15m]) > 1
+          expr: rate(petclinic_pets_created_total{environment="petclinic-prod"}[15m]) > 1000
           for: 15m
           labels:
             severity: info
           annotations:
-            summary: Petclinic prod pets creation is increasing
-            description: Pets creation rate in prod is above 1 per second for 15 minutes.
+            summary: Petclinic prod pet creation rate is unusually high
+            description: Pet creation rate in production has remained above 1000 per second for 15 minutes. Investigate for unusual traffic, automation, load testing, or potential abuse.
 
         - alert: PetclinicVisitsCreatedSpike
-          expr: rate(petclinic_visits_created_total{environment="petclinic-prod"}[15m]) > 1
+          expr: rate(petclinic_visits_created_total{environment="petclinic-prod"}[15m]) > 1000
           for: 15m
           labels:
             severity: info
           annotations:
-            summary: Petclinic prod visits creation is increasing
-            description: Visits creation rate in prod is above 1 per second for 15 minutes.
+            summary: Petclinic prod visit creation rate is unusually high
+            description: Visit creation rate in production has remained above 1000 per second for 15 minutes. Investigate for unusual traffic, automation, load testing, or potential abuse.

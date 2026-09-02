@@ -92,7 +92,7 @@ class VisitControllerTests {
 	}
 
 	@Test
-	void processNewVisitFormSuccessIncrementsVisitCreationMetric() throws Exception {
+	void processNewVisitFormSuccessIncrementsVisitCreationMetric() throws Exception { #Monitoring
 		double before = this.meterRegistry.find("petclinic_visits_created_total").counter().count();
 
 		mockMvc
@@ -108,7 +108,7 @@ class VisitControllerTests {
 	}
 
 	@Test
-	void processNewVisitFormHasErrorsDoesNotIncrementVisitCreationMetric() throws Exception {
+	void processNewVisitFormHasErrorsDoesNotIncrementVisitCreationMetric() throws Exception { #Monitoring
 		double before = this.meterRegistry.find("petclinic_visits_created_total").counter().count();
 
 		mockMvc
