@@ -131,7 +131,7 @@ class OwnerControllerTests {
 	}
 
 	@Test
-	void processCreationFormSuccessIncrementsOwnerCreationMetric() throws Exception { #Monitoring
+	void processCreationFormSuccessIncrementsOwnerCreationMetric() throws Exception { //Monitoring
 		double before = this.meterRegistry.find("petclinic_owners_created_total").counter().count();
 
 		mockMvc
@@ -147,7 +147,7 @@ class OwnerControllerTests {
 	}
 
 	@Test
-	void processCreationFormHasErrorsDoesNotIncrementOwnerCreationMetric() throws Exception { #Monitoring
+	void processCreationFormHasErrorsDoesNotIncrementOwnerCreationMetric() throws Exception { //Monitoring
 		double before = this.meterRegistry.find("petclinic_owners_created_total").counter().count();
 
 		mockMvc
