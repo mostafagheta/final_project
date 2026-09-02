@@ -7,7 +7,7 @@ metadata:
     release: kube-prometheus-stack
 spec:
   groups:
-    - name: petclinic.dev.rules
+    - name: petclinic.dev.operational
       rules:
         - alert: PetclinicAppDown
           expr: up{environment="petclinic-dev"} == 0
@@ -16,49 +16,347 @@ spec:
             severity: critical
           annotations:
             summary: Petclinic dev app is down
-            description: The Petclinic dev target is not being scraped by Prometheus.
+            description: The Petclinic dev target has failed Prometheus scraping for more than 2 minutes.
+
+        - record: petclinic:http_requests_5xx:rate5m
+          expr: |
+            sum by (environment) (
+              rate(
+                http_server_requests_seconds_count{
+                  environment="petclinic-dev",
+                  status=~"5.."
+                }[5m]
+              )
+            )
 
         - alert: PetclinicHigh5xxRate
-          expr: sum(rate(http_server_requests_seconds_count{environment="petclinic-dev",status=~"5.."}[5m])) / sum(rate(http_server_requests_seconds_count{environment="petclinic-dev"}[5m])) * 100 > 5
+          expr: |
+            (
+              sum(rate(http_server_requests_seconds_count{
+                environment="petclinic-dev",
+                status=~"5.."
+              }[5m]))
+              /
+              sum(rate(http_server_requests_seconds_count{
+                environment="petclinic-dev"
+              }[5m]))
+            ) * 100 > 5
           for: 5m
           labels:
             severity: warning
           annotations:
             summary: High 5xx error rate in dev
-            description: More than 5% of requests are returning 5xx in the petclinic-dev environment.
+            description: More than 5% of dev HTTP requests are returning HTTP 5xx for 5 minutes.
 
-        - alert: PetclinicSlowResponses
-          expr: histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{environment="petclinic-dev"}[5m]))) > 1
+        - record: petclinic:memory_saturation:5m
+          expr: |
+            sum(container_memory_working_set_bytes{
+              namespace="petclinic-dev",
+              container!="",
+              image!=""
+            })
+            /
+            sum(kube_pod_container_resource_limits{
+              namespace="petclinic-dev",
+              resource="memory",
+              unit="byte"
+            })
+
+        - alert: PetclinicHighMemorySaturation
+          expr: petclinic:memory_saturation:5m >= 0.95
           for: 10m
           labels:
             severity: warning
           annotations:
-            summary: Petclinic dev response latency is too high
-            description: P95 latency is above 1 second in petclinic-dev.
+            summary: Petclinic dev memory saturation is high
+            description: Petclinic dev memory utilization has reached or exceeded 95% of configured container memory limits for 10 minutes.
 
-        - alert: PetclinicOwnersCreatedSpike
-          expr: rate(petclinic_owners_created_total{environment="petclinic-dev"}[15m]) > 1
-          for: 15m
-          labels:
-            severity: info
-          annotations:
-            summary: Petclinic dev owners creation is increasing
-            description: Owners creation rate in dev is above 1 per second for 15 minutes.
+        - record: petclinic:cpu_saturation:5m
+          expr: |
+            sum(rate(container_cpu_usage_seconds_total{
+              namespace="petclinic-dev",
+              container!="",
+              image!=""
+            }[5m]))
+            /
+            sum(kube_pod_container_resource_limits{
+              namespace="petclinic-dev",
+              resource="cpu",
+              unit="core"
+            })
 
-        - alert: PetclinicPetsCreatedSpike
-          expr: rate(petclinic_pets_created_total{environment="petclinic-dev"}[15m]) > 1
-          for: 15m
+        - alert: PetclinicHighCPUSaturation
+          expr: petclinic:cpu_saturation:5m >= 0.95
+          for: 10m
           labels:
-            severity: info
+            severity: warning
           annotations:
-            summary: Petclinic dev pets creation is increasing
-            description: Pets creation rate in dev is above 1 per second for 15 minutes.
+            summary: Petclinic dev CPU saturation is high
+            description: Petclinic dev CPU utilization has reached or exceeded 95% of configured container CPU limits for 10 minutes.
 
-        - alert: PetclinicVisitsCreatedSpike
-          expr: rate(petclinic_visits_created_total{environment="petclinic-dev"}[15m]) > 1
-          for: 15m
+    - name: petclinic.dev.business_sli
+      rules:
+        - record: petclinic:add_visit:latency_sli:5m
+          expr: |
+            sum(rate(http_server_requests_seconds_bucket{
+              environment="petclinic-dev",
+              method="POST",
+              uri="/owners/{ownerId}/pets/{petId}/visits/new",
+              le="1.0"             #requests whose duration is ≤ 1 second.
+            }[5m]))
+            /
+            sum(rate(http_server_requests_seconds_count{
+              environment="petclinic-dev",
+              method="POST",
+              uri="/owners/{ownerId}/pets/{petId}/visits/new"
+            }[5m]))
+
+        - record: petclinic:add_visit:latency_sli:30d
+          expr: |
+            sum(increase(http_server_requests_seconds_bucket{
+              environment="petclinic-dev",
+              method="POST",
+              uri="/owners/{ownerId}/pets/{petId}/visits/new",
+              le="1.0"
+            }[30d]))
+            /
+            sum(increase(http_server_requests_seconds_count{
+              environment="petclinic-dev",
+              method="POST",
+              uri="/owners/{ownerId}/pets/{petId}/visits/new"
+            }[30d]))
+
+        - record: petclinic:add_visit:latency_p95:seconds
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum by (le, environment) (
+                rate(http_server_requests_seconds_bucket{
+                  environment="petclinic-dev",
+                  method="POST",
+                  uri="/owners/{ownerId}/pets/{petId}/visits/new"
+                }[5m])
+              )
+            )
+
+        - record: petclinic:add_visit:success_rate:5m
+          expr: |
+            sum(rate(http_server_requests_seconds_count{
+              environment="petclinic-dev",
+              method="POST",
+              uri="/owners/{ownerId}/pets/{petId}/visits/new",
+              status=~"2.."
+            }[5m]))
+            /
+            sum(rate(http_server_requests_seconds_count{
+              environment="petclinic-dev",
+              method="POST",
+              uri="/owners/{ownerId}/pets/{petId}/visits/new"
+            }[5m]))
+
+        - record: petclinic:add_visit:business_success_rate:30d
+          expr: |
+            sum(increase(petclinic_visits_created_total{
+              environment="petclinic-dev"
+            }[30d]))
+            /
+            sum(increase(petclinic_visit_creation_attempts_total{
+              environment="petclinic-dev"
+            }[30d]))
+
+        - record: petclinic:find_owner:latency_sli:5m
+          expr: |
+            sum(rate(http_server_requests_seconds_bucket{
+              environment="petclinic-dev",
+              method="GET",
+              uri="/owners/{ownerId}",
+              le="1.0"
+            }[5m]))
+            /
+            sum(rate(http_server_requests_seconds_count{
+              environment="petclinic-dev",
+              method="GET",
+              uri="/owners/{ownerId}"
+            }[5m]))
+
+        - record: petclinic:add_pet:latency_sli:5m
+          expr: |
+            sum(rate(http_server_requests_seconds_bucket{
+              environment="petclinic-dev",
+              method="POST",
+              uri="/owners/{ownerId}/pets/new",
+              le="1.0"
+            }[5m]))
+            /
+            sum(rate(http_server_requests_seconds_count{
+              environment="petclinic-dev",
+              method="POST",
+              uri="/owners/{ownerId}/pets/new"
+            }[5m]))
+
+        - record: petclinic:add_pet:latency_sli:30d
+          expr: |
+            sum(increase(http_server_requests_seconds_bucket{
+              environment="petclinic-dev",
+              method="POST",
+              uri="/owners/{ownerId}/pets/new",
+              le="1.0"
+            }[30d]))
+            /
+            sum(increase(http_server_requests_seconds_count{
+              environment="petclinic-dev",
+              method="POST",
+              uri="/owners/{ownerId}/pets/new"
+            }[30d]))
+
+        - record: petclinic:add_pet:latency_p95:seconds
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum by (le, environment) (
+                rate(http_server_requests_seconds_bucket{
+                  environment="petclinic-dev",
+                  method="POST",
+                  uri="/owners/{ownerId}/pets/new"
+                }[5m])
+              )
+            )
+
+        - record: petclinic:add_pet:success_rate:5m
+          expr: |
+            sum(rate(http_server_requests_seconds_count{
+              environment="petclinic-dev",
+              method="POST",
+              uri="/owners/{ownerId}/pets/new",
+              status=~"2.."
+            }[5m]))
+            /
+            sum(rate(http_server_requests_seconds_count{
+              environment="petclinic-dev",
+              method="POST",
+              uri="/owners/{ownerId}/pets/new"
+            }[5m]))
+
+        - alert: PetclinicAddPetLatencySLOBreach
+          expr: petclinic:add_pet:latency_sli:30d < 0.99
+          for: 10m
           labels:
-            severity: info
+            severity: warning
           annotations:
-            summary: Petclinic dev visits creation is increasing
-            description: Visits creation rate in dev is above 1 per second for 15 minutes.
+            summary: PetClinic Add Pet latency SLO is below 99%
+            description: Fewer than 99% of Add Pet operations completed within 1 second over the rolling 30-day window.
+
+        - alert: PetclinicAddPetSlow
+          expr: petclinic:add_pet:latency_p95:seconds > 1
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: PetClinic Add Pet P95 latency is above 1 second
+            description: The P95 latency of the Add Pet operation has remained above 1 second for 10 minutes.
+
+        - alert: PetclinicAddPetSuccessRateLow
+          expr: petclinic:add_pet:success_rate:5m < 0.999
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: PetClinic Add Pet success rate is below 99.9%
+            description: Fewer than 99.9% of Add Pet HTTP requests are returning 2xx responses.
+
+        - record: petclinic:find_owner:latency_sli:30d
+          expr: |
+            sum(increase(http_server_requests_seconds_bucket{
+              environment="petclinic-dev",
+              method="GET",
+              uri="/owners/{ownerId}",
+              le="1.0"
+            }[30d]))
+            /
+            sum(increase(http_server_requests_seconds_count{
+              environment="petclinic-dev",
+              method="GET",
+              uri="/owners/{ownerId}"
+            }[30d]))
+
+        - record: petclinic:find_owner:latency_p95:seconds
+          expr: |
+            histogram_quantile(
+              0.95,
+              sum by (le, environment) (
+                rate(http_server_requests_seconds_bucket{
+                  environment="petclinic-dev",
+                  method="GET",
+                  uri="/owners/{ownerId}"
+                }[5m])
+              )
+            )
+
+        - record: petclinic:find_owner:success_rate:5m
+          expr: |
+            sum(rate(http_server_requests_seconds_count{
+              environment="petclinic-dev",
+              method="GET",
+              uri="/owners/{ownerId}",
+              status=~"2.."
+            }[5m]))
+            /
+            sum(rate(http_server_requests_seconds_count{
+              environment="petclinic-dev",
+              method="GET",
+              uri="/owners/{ownerId}"
+            }[5m]))
+
+        - alert: PetclinicFindOwnerLatencySLOBreach
+          expr: petclinic:find_owner:latency_sli:30d < 0.99
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: PetClinic Find Owner latency SLO is below 99%
+            description: Fewer than 99% of Find Owner operations completed within 1 second over the rolling 30-day window.
+
+        - alert: PetclinicFindOwnerSlow
+          expr: petclinic:find_owner:latency_p95:seconds > 1
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: PetClinic Find Owner P95 latency is above 1 second
+            description: The P95 latency of the Find Owner operation has remained above 1 second for 10 minutes.
+
+        - alert: PetclinicFindOwnerSuccessRateLow
+          expr: petclinic:find_owner:success_rate:5m < 0.999
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: PetClinic Find Owner success rate is below 99.9%
+            description: Fewer than 99.9% of Find Owner HTTP requests are returning 2xx responses.
+
+        - alert: PetclinicAddVisitLatencySLOBreach
+          expr: petclinic:add_visit:latency_sli:30d < 0.99
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: PetClinic Add Visit latency SLO is below 99%
+            description: Fewer than 99% of successful Add Visit operations completed within 1 second over the rolling 30-day window.
+
+        - alert: PetclinicAddVisitSlow
+          expr: petclinic:add_visit:latency_p95:seconds > 1
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: PetClinic Add Visit P95 latency is above 1 second
+            description: The P95 latency of the Add Visit operation has remained above 1 second for 10 minutes.
+
+        - alert: PetclinicAddVisitSuccessRateLow
+          expr: petclinic:add_visit:success_rate:5m < 0.999
+          for: 10m
+          labels:
+            severity: critical
+          annotations:
+            summary: PetClinic Add Visit success rate is below 99.9%
+            description: Fewer than 99.9% of Add Visit HTTP requests are returning 2xx responses.
