@@ -87,15 +87,15 @@ externalSecret:
   data:
     - secretKey: POSTGRES_USER
       remoteRef:
-        key: petclinic/database/prod
+        key: petclinic/database
         property: username
     - secretKey: POSTGRES_PASS
       remoteRef:
-        key: petclinic/database/prod
+        key: petclinic/database
         property: password
     - secretKey: POSTGRES_URL
       remoteRef:
-        key: petclinic/database/prod
+        key: petclinic/database
         property: url
 
 postgresql:
