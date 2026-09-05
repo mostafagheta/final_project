@@ -1,0 +1,39 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: pod-identity-associations
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+    argocd.argoproj.io/sync-wave: "-1"   # runs before all other addon Applications
+spec:
+  template:
+    spec:
+      serviceAccountName: pod-identity-manager
+      restartPolicy: Never
+      containers:
+        - name: aws-cli
+          image: amazon/aws-cli:2.17.0
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              create_if_missing() {
+                NS=$1; SA=$2; ROLE_ARN=$3
+                ASSOC=$(aws eks list-pod-identity-associations \
+                  --cluster-name myapp-eks-cluster --namespace "$NS" \
+                  --service-account "$SA" --region eu-central-1 \
+                  --query 'associations[0].associationId' --output text)
+                if [ "$ASSOC" = "None" ] || [ -z "$ASSOC" ]; then
+                  aws eks create-pod-identity-association \
+                    --cluster-name myapp-eks-cluster --namespace "$NS" \
+                    --service-account "$SA" --role-arn "$ROLE_ARN" \
+                    --region eu-central-1
+                fi
+              }
+              create_if_missing kube-system aws-load-balancer-controller \
+                arn:aws:iam::130299714330:role/myapp-eks-cluster-aws-lb-controller
+              create_if_missing external-secrets external-secrets \
+                arn:aws:iam::130299714330:role/myapp-eks-cluster-external-secrets
+              create_if_missing velero velero \
+                arn:aws:iam::130299714330:role/myapp-eks-cluster-velero

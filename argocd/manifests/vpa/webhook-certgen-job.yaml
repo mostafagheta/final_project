@@ -1,0 +1,34 @@
+# Pair this with apps/vertical-pod-autoscaler.yaml (Option A only - skip if
+# you use the Helm alternative). Reproduces what vpa-up.sh does via
+# pkg/admission-controller/gencerts.sh: generates a self-signed cert/key for
+# the admission webhook, stores it as a Secret, and the webhook config picks
+# up the caBundle. gencerts.sh is idempotent - it skips regeneration if the
+# secret already exists (verify this against the pinned VPA version).
+#
+# Needs a ServiceAccount (vpa-certgen) with RBAC to create Secrets and patch
+# the MutatingWebhookConfiguration in kube-system - not included here since
+# it should be provisioned once alongside your cluster bootstrap.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: vpa-webhook-certgen
+  namespace: kube-system
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: HookSucceeded
+spec:
+  template:
+    spec:
+      serviceAccountName: vpa-certgen
+      restartPolicy: Never
+      containers:
+        - name: certgen
+          image: alpine/git:2.45.2
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              apk add --no-cache bash openssl kubectl
+              git clone --depth 1 --branch vertical-pod-autoscaler-1.2.1 \
+                https://github.com/kubernetes/autoscaler.git /tmp/autoscaler
+              cd /tmp/autoscaler/vertical-pod-autoscaler
+              ./pkg/admission-controller/gencerts.sh

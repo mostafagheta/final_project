@@ -1,0 +1,36 @@
+# ALTERNATIVE to manifests/pod-identity-job/job.yaml.
+# Requires the ACK EKS controller installed first (its own Application,
+# e.g. apps/ack-eks-controller.yaml - not included here, see
+# https://github.com/aws-controllers-k8s/eks-controller).
+# If you use this, point apps/pod-identity-associations.yaml's
+# source.path at "manifests/pod-identity-ack" instead, and delete
+# manifests/pod-identity-job.
+apiVersion: eks.services.k8s.aws/v1alpha1
+kind: PodIdentityAssociation
+metadata:
+  name: alb-controller
+spec:
+  clusterName: myapp-eks-cluster
+  namespace: kube-system
+  serviceAccount: aws-load-balancer-controller
+  roleARN: arn:aws:iam::130299714330:role/myapp-eks-cluster-aws-lb-controller
+---
+apiVersion: eks.services.k8s.aws/v1alpha1
+kind: PodIdentityAssociation
+metadata:
+  name: external-secrets
+spec:
+  clusterName: myapp-eks-cluster
+  namespace: external-secrets
+  serviceAccount: external-secrets
+  roleARN: arn:aws:iam::130299714330:role/myapp-eks-cluster-external-secrets
+---
+apiVersion: eks.services.k8s.aws/v1alpha1
+kind: PodIdentityAssociation
+metadata:
+  name: velero
+spec:
+  clusterName: myapp-eks-cluster
+  namespace: velero
+  serviceAccount: velero
+  roleARN: arn:aws:iam::130299714330:role/myapp-eks-cluster-velero

@@ -1,0 +1,28 @@
+# Runs before every other addon (sync-wave -1) so their ServiceAccounts
+# already have Pod Identity when the controllers start.
+# Requires a ServiceAccount "pod-identity-manager" (IRSA or Pod Identity
+# itself) with eks:ListPodIdentityAssociations / eks:CreatePodIdentityAssociation.
+#
+# If you'd rather do this fully declaratively, delete this file and use the
+# ACK PodIdentityAssociation CRDs in manifests/pod-identity/ instead (requires
+# installing the ACK EKS controller as its own Application first).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pod-identity-associations
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/mostafagheta/final_project.git
+    targetRevision: dev
+    path: argocd/manifests/pod-identity-job
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
