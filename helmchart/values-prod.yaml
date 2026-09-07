@@ -12,9 +12,9 @@
 replicaCount: 3
 
 image:
-  repository: 130299714330.dkr.ecr.eu-central-1.amazonaws.com/petclinic-prod
-  pullPolicy: IfNotPresent     # Avoid unnecessary pulls on stable prod tags
-  tag: "latest"
+  repository: 130299714330.dkr.ecr.eu-central-1.amazonaws.com/petclinic
+  pullPolicy: Always
+  tag: "prod-2e8e73d0415d574ad41a1eae61bd159a3b579c98"
 
 fullnameOverride: "petclinic"
 

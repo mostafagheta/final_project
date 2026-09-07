@@ -12,9 +12,9 @@
 replicaCount: 2
 
 image:
-  repository: 130299714330.dkr.ecr.eu-central-1.amazonaws.com/petclinic-test
+  repository: 130299714330.dkr.ecr.eu-central-1.amazonaws.com/petclinic
   pullPolicy: Always
-  tag: "latest"
+  tag: "test-2e8e73d0415d574ad41a1eae61bd159a3b579c98"
 
 fullnameOverride: "petclinic"
 

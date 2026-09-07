@@ -1,0 +1,52 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: petclinic
+  namespace: argocd
+spec:
+  goTemplate: true
+  goTemplateOptions: ["missingkey=error"]
+  generators:
+    - list:
+        elements:
+          - env: dev
+            namespace: petclinic-dev
+            valuesFile: values-dev.yaml
+            tagPrefix: dev
+          - env: test
+            namespace: petclinic-test
+            valuesFile: values-test.yaml
+            tagPrefix: test
+          - env: prod
+            namespace: petclinic-prod
+            valuesFile: values-prod.yaml
+            tagPrefix: prod
+  template:
+    metadata:
+      name: "petclinic-{{.env}}"
+      annotations:
+        # --- ArgoCD Image Updater ---
+        # single shared ECR repo; tag prefix (dev-/test-/prod-) distinguishes envs
+        argocd-image-updater.argoproj.io/image-list: "petclinic=130299714330.dkr.ecr.eu-central-1.amazonaws.com/petclinic"
+        argocd-image-updater.argoproj.io/petclinic.update-strategy: newest-build
+        argocd-image-updater.argoproj.io/petclinic.allow-tags: "regexp:^{{.tagPrefix}}-"
+        # ECR auth handled via IRSA + authScripts on argocd-image-updater — no pull-secret needed
+        # writes straight into the Argo CD Application — fine since sync is automated for all envs
+        argocd-image-updater.argoproj.io/write-back-method: argocd
+    spec:
+      project: default
+      source:
+        repoURL: https://github.com/mostafagheta/final_project.git
+        targetRevision: dev
+        path: helmchart
+        helm:
+          valueFiles:
+            - "{{.valuesFile}}"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{.namespace}}"
+      syncPolicy:
+        automated:
+          prune: true
+        syncOptions:
+          - CreateNamespace=true
