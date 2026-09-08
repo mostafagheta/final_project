@@ -4,16 +4,16 @@ metadata:
   name: petclinic-prod-monitor
   namespace: monitoring
   labels:
-    release: kube-prometheus-stack
+    release: kube-prometheus-stack      #read every ServiceMonitor in the cluster labeled kube-prometheus-stack
 spec:
   jobLabel: app
   namespaceSelector:
     matchNames:
-      - petclinic-prod
+      - petclinic-prod  #look for services inside the petclinic-prod namespace
   selector:
-    matchLabels:
-      app.kubernetes.io/name: myapp
-      app.kubernetes.io/instance: petclinic-prod
+    matchLabels:    #Kubernetes Service object whose labels match
+      app.kubernetes.io/name: myapp                   #name=myapp
+      app.kubernetes.io/instance: petclinic-prod      #instance=petclinic-prod
   endpoints:
     - port: http
       path: /actuator/prometheus
